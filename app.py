@@ -47,11 +47,11 @@ class InventoryObserver(Observer):
 
 class TransactionFactory:
     @staticmethod
-    def create_transaction(payment_type):
+    def create_transaction(payment_type, transaction_data):
         if payment_type == "tunai":
-            return CashTransaction()
+            return CashTransaction(transaction_data)
         elif payment_type == "kartu kredit":
-            return CreditCardTransaction()
+            return CreditCardTransaction(transaction_data)
         else:
             raise ValueError("Jenis pembayaran tidak valid.")
 
@@ -64,13 +64,13 @@ class TransactionDecorator:
 
 class CashTransaction(TransactionDecorator):
     def calculate_total(self):
-        total = self.transaction[1] * self.transaction[2]
+        total = self.transaction
         return total
 
 class CreditCardTransaction(TransactionDecorator):
     def calculate_total(self):
-        total = self.transaction[1] * self.transaction[2]
-        return total + 5  
+        total = self.transaction
+        return str(int(total) - 5000)
 
 class SalesApp:
     def __init__(self):
@@ -115,11 +115,15 @@ class SalesApp:
         self.delete_product_btn = tk.Button(self.inventory_window, text="Hapus Barang", command=self.delete_product)
         self.delete_product_btn.pack(pady=5)
 
-        self.sell_product_btn = tk.Button(self.inventory_window, text="Jual Barang", command=self.sell_product)
-        self.sell_product_btn.pack(pady=5)
+        self.sell_cash_product_btn = tk.Button(self.inventory_window, text="Jual Barang (Tunai)", command=lambda: self.sell_product_with_payment_type("tunai"))
+        self.sell_cash_product_btn.pack(pady=5)
+        
+        self.sell_credit_product_btn = tk.Button(self.inventory_window, text="Jual Barang (Kartu Kredit)", command=lambda: self.sell_product_with_payment_type("kartu kredit"))
+        self.sell_credit_product_btn.pack(pady=5)
         
         self.view_transactions_btn = tk.Button(self.inventory_window, text="Lihat Riwayat Transaksi", command=self.show_transactions)
         self.view_transactions_btn.pack(pady=5)
+
 
     def load_inventory(self):
         inventory_data = []
@@ -158,9 +162,9 @@ class SalesApp:
     
     def save_product(self):
         product = self.product_name_entry.get()
-        price = float(self.price_entry.get())
+        price = int(self.price_entry.get())
         quantity = int(self.quantity_entry.get())
-        cost_price = float(self.cost_price_entry.get())
+        cost_price = int(self.cost_price_entry.get())
         # print(product, price, quantity, cost_price)
         
         product_data = (product, price, quantity, cost_price)
@@ -238,9 +242,9 @@ class SalesApp:
             return
         
         product = self.product_name_entry.get()
-        price = float(self.price_entry.get())
+        price = int(self.price_entry.get())
         quantity = int(self.quantity_entry.get())
-        cost_price = float(self.cost_price_entry.get())
+        cost_price = int(self.cost_price_entry.get())
         
         updated_product_data = (product, price, quantity, cost_price)
         
@@ -300,6 +304,49 @@ class SalesApp:
         self.inventory_tree.delete(*self.inventory_tree.get_children())
         self.inventory_window.destroy()
         self.show_inventory()
+
+    def sell_product_with_payment_type(self, payment_type):
+        selected_item = self.inventory_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Silakan pilih item yang ingin dijual.")
+            return
+        
+        index = self.inventory_tree.index(selected_item)
+        product_data = self.inventory_tree.item(selected_item, "values")
+        
+        if int(product_data[2]) <= 0:
+            messagebox.showerror("Error", "Stok barang habis.")
+            return
+        
+        # Create transaction based on payment type
+        transaction = TransactionFactory.create_transaction(payment_type, product_data[1])
+        # Calculate total payment  # Data for the transaction
+        total_payment = transaction.calculate_total()
+        # Update data stok barang
+        updated_inventory = []
+        with open(self.file_handler.inventory_file, "r") as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if tuple(row) != tuple(product_data):
+                    updated_inventory.append(row)
+                else:
+                    updated_inventory.append((row[0], row[1], int(row[2]) - 1, row[3]))
+        
+        with open(self.file_handler.inventory_file, "w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerows(updated_inventory)
+        
+        # Tambahkan item terjual ke riwayat transaksi
+        with open(self.file_handler.transactions_file, "a", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow((product_data[0], total_payment, 1, product_data[3]))  # Menambahkan transaksi dengan jumlah 1
+        
+        messagebox.showinfo("Info", f"Produk {product_data[0]} berhasil dijual.\nTotal Pembayaran: {total_payment}")
+        
+        self.inventory_tree.delete(*self.inventory_tree.get_children())
+        self.inventory_window.destroy()
+        self.show_inventory()
+
 
     def delete_product(self):
         selected_item = self.inventory_tree.selection()
@@ -369,8 +416,8 @@ class SalesApp:
         with open(self.file_handler.transactions_file, "r") as file:
             reader = csv.reader(file)
             for row in reader:
-                total_sales += float(row[1])
-                total_cost += float(row[3])
+                total_sales += int(row[1])
+                total_cost += int(row[3])
         
         total_profit = total_sales - total_cost
         
