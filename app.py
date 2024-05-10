@@ -3,6 +3,7 @@ import tkinter.ttk as ttk
 from tkinter import messagebox
 import csv
 import os
+from datetime import datetime
 
 class SingletonFileHandler:
     _instance = None
@@ -25,13 +26,13 @@ class Observer:
     
     def notify(self, data):
         for observer in self.observers:
-            observer.update(data)
-            
+            result = observer.update(data)
+        return result
 class InventoryObserver(Observer):
     def update(self, data):
-        product = data[0]
-        price = data[1]
-        quantity = data[2]
+        product = data[1]
+        price = data[2]
+        quantity = data[3]
         
         if not product:
             messagebox.showerror("Error", "Nama barang tidak boleh kosong.")
@@ -82,23 +83,24 @@ class SalesApp:
         
         self.show_inventory()
         
-    def create_widgets(self):
-        self.label = tk.Label(self.root, text="Selamat Datang di Aplikasi Manajemen Penjualan")
-        self.label.pack(pady=10)
+    # def create_widgets(self):
+    #     self.label = tk.Label(self.root, text="Selamat Datang di Aplikasi Manajemen Penjualan")
+    #     self.label.pack(pady=10)
         
-        self.manage_inventory_btn = tk.Button(self.root, text="Kelola Stok Barang", command=self.show_inventory)
-        self.manage_inventory_btn.pack(pady=5)
+    #     self.manage_inventory_btn = tk.Button(self.root, text="Kelola Stok Barang", command=self.show_inventory)
+    #     self.manage_inventory_btn.pack(pady=5)
         
     def show_inventory(self):
         self.inventory_window = tk.Tk()
         self.inventory_window.title("Kelola Stok Barang")
         
-        self.inventory_tree = ttk.Treeview(self.inventory_window, columns=("Nama Barang", "Harga", "Jumlah", "Modal"))
+        self.inventory_tree = ttk.Treeview(self.inventory_window, columns=("Nama Barang", "Waktu Input","Harga", "Jumlah", "Modal"))
         self.inventory_tree.heading("#0", text="No.")
-        self.inventory_tree.heading("#1", text="Nama Barang")
-        self.inventory_tree.heading("#2", text="Harga")
-        self.inventory_tree.heading("#3", text="Jumlah")
-        self.inventory_tree.heading("#4", text="Modal")
+        self.inventory_tree.heading("#1", text="Waktu Input")
+        self.inventory_tree.heading("#2", text="Nama Barang")
+        self.inventory_tree.heading("#3", text="Harga")
+        self.inventory_tree.heading("#4", text="Jumlah")
+        self.inventory_tree.heading("#5", text="Modal")
         
         inventory_data = self.load_inventory()
         for i, item in enumerate(inventory_data, start=1):
@@ -123,7 +125,6 @@ class SalesApp:
         
         self.view_transactions_btn = tk.Button(self.inventory_window, text="Lihat Riwayat Transaksi", command=self.show_transactions)
         self.view_transactions_btn.pack(pady=5)
-
 
     def load_inventory(self):
         inventory_data = []
@@ -159,39 +160,33 @@ class SalesApp:
         
         self.submit_product_btn = tk.Button(self.add_product_window, text="Tambah", command=self.save_product)
         self.submit_product_btn.grid(row=4, columnspan=2, padx=5, pady=5)
-    
+
     def save_product(self):
         product = self.product_name_entry.get()
         price = int(self.price_entry.get())
         quantity = int(self.quantity_entry.get())
         cost_price = int(self.cost_price_entry.get())
-        # print(product, price, quantity, cost_price)
-        
-        product_data = (product, price, quantity, cost_price)
-        
-        # valid = self.observer.notify(product_data)
-        # if not valid:
-        #     return
-        
-        # Buka file inventory.csv dengan mode "a" untuk menambahkan data baru
-        # with open(self.file_handler.inventory_file, "a", newline="") as file:
-        #     writer = csv.writer(file)
-        #     writer.writerow(product_data)
-        
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Tanggal dan waktu saat ini
+
+        product_data = (current_datetime, product, price, quantity, cost_price)
+        valid = self.observer.notify(product_data)
+        print(valid)
+        if not valid:
+            return
         # Ganti mode file ke "w" untuk menulis ulang seluruh isi file dengan data baru
         with open(self.file_handler.inventory_file, "w", newline="") as file:
             writer = csv.writer(file)
-            
+
+            # Tambahkan data barang baru di awal
+            writer.writerow(product_data)
+
             # Tulis ulang data barang yang sudah ada
             for item in self.inventory_tree.get_children():
                 values = self.inventory_tree.item(item, "values")
                 writer.writerow(values)
-            
-            # Tambahkan data barang baru
-            writer.writerow(product_data)
-        
+
         messagebox.showinfo("Info", "Produk berhasil ditambahkan.")
-        
+
         # Perbarui tampilan tabel stok barang
         self.inventory_tree.delete(*self.inventory_tree.get_children())
         self.inventory_window.destroy()
@@ -212,41 +207,36 @@ class SalesApp:
         self.product_name_label.grid(row=0, column=0, padx=5, pady=5)
         self.product_name_entry = tk.Entry(self.update_product_window)
         self.product_name_entry.grid(row=0, column=1, padx=5, pady=5)
-        self.product_name_entry.insert(0, selected_product_data[0])  # Mengisi entry dengan nama barang yang dipilih
+        self.product_name_entry.insert(0, selected_product_data[1])  # Mengisi entry dengan nama barang yang dipilih
         
         self.price_label = tk.Label(self.update_product_window, text="Harga:")
         self.price_label.grid(row=1, column=0, padx=5, pady=5)
         self.price_entry = tk.Entry(self.update_product_window)
         self.price_entry.grid(row=1, column=1, padx=5, pady=5)
-        self.price_entry.insert(0, selected_product_data[1])  # Mengisi entry dengan harga barang yang dipilih
+        self.price_entry.insert(0, selected_product_data[2])  # Mengisi entry dengan harga barang yang dipilih
         
         self.quantity_label = tk.Label(self.update_product_window, text="Jumlah:")
         self.quantity_label.grid(row=2, column=0, padx=5, pady=5)
         self.quantity_entry = tk.Entry(self.update_product_window)
         self.quantity_entry.grid(row=2, column=1, padx=5, pady=5)
-        self.quantity_entry.insert(0, selected_product_data[2])  # Mengisi entry dengan jumlah barang yang dipilih
+        self.quantity_entry.insert(0, selected_product_data[3])  # Mengisi entry dengan jumlah barang yang dipilih
         
         self.cost_price_label = tk.Label(self.update_product_window, text="Harga Modal:")
         self.cost_price_label.grid(row=3, column=0, padx=5, pady=5)
         self.cost_price_entry = tk.Entry(self.update_product_window)
         self.cost_price_entry.grid(row=3, column=1, padx=5, pady=5)
-        self.cost_price_entry.insert(0, selected_product_data[3])  # Mengisi entry dengan harga modal barang yang dipilih
+        self.cost_price_entry.insert(0, selected_product_data[4])  # Mengisi entry dengan harga modal barang yang dipilih
         
-        self.submit_update_btn = tk.Button(self.update_product_window, text="Simpan", command=self.save_updated_product)
+        self.submit_update_btn = tk.Button(self.update_product_window, text="Simpan", command=lambda: self.save_updated_product(selected_item))
         self.submit_update_btn.grid(row=4, columnspan=2, padx=5, pady=5)
 
-    def save_updated_product(self):
-        selected_item = self.inventory_tree.selection()
-        if not selected_item:
-            messagebox.showerror("Error", "Silakan pilih barang yang ingin diperbarui.")
-            return
-        
+    def save_updated_product(self, selected_item):
         product = self.product_name_entry.get()
         price = int(self.price_entry.get())
         quantity = int(self.quantity_entry.get())
         cost_price = int(self.cost_price_entry.get())
         
-        updated_product_data = (product, price, quantity, cost_price)
+        updated_product_data = (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), product, price, quantity, cost_price)
         
         updated_inventory = []
         with open(self.file_handler.inventory_file, "r") as file:
@@ -266,6 +256,7 @@ class SalesApp:
         self.inventory_tree.delete(*self.inventory_tree.get_children())
         self.inventory_window.destroy()
         self.show_inventory()
+
 
     def sell_product(self):
         selected_item = self.inventory_tree.selection()
@@ -310,19 +301,21 @@ class SalesApp:
         if not selected_item:
             messagebox.showerror("Error", "Silakan pilih item yang ingin dijual.")
             return
-        
+
         index = self.inventory_tree.index(selected_item)
         product_data = self.inventory_tree.item(selected_item, "values")
-        
-        if int(product_data[2]) <= 0:
+
+        if int(product_data[3]) <= 0:
             messagebox.showerror("Error", "Stok barang habis.")
             return
-        
+
         # Create transaction based on payment type
-        transaction = TransactionFactory.create_transaction(payment_type, product_data[1])
+        transaction = TransactionFactory.create_transaction(payment_type, product_data[2])
         # Calculate total payment  # Data for the transaction
         total_payment = transaction.calculate_total()
-        # Update data stok barang
+
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Tanggal dan waktu saat ini
+
         updated_inventory = []
         with open(self.file_handler.inventory_file, "r") as file:
             reader = csv.reader(file)
@@ -330,19 +323,19 @@ class SalesApp:
                 if tuple(row) != tuple(product_data):
                     updated_inventory.append(row)
                 else:
-                    updated_inventory.append((row[0], row[1], int(row[2]) - 1, row[3]))
-        
+                    updated_inventory.append((current_datetime, row[1], row[2], int(row[3]) - 1, row[4]))
+
         with open(self.file_handler.inventory_file, "w", newline="") as file:
             writer = csv.writer(file)
             writer.writerows(updated_inventory)
-        
+
         # Tambahkan item terjual ke riwayat transaksi
         with open(self.file_handler.transactions_file, "a", newline="") as file:
             writer = csv.writer(file)
-            writer.writerow((product_data[0], total_payment, 1, product_data[3]))  # Menambahkan transaksi dengan jumlah 1
-        
-        messagebox.showinfo("Info", f"Produk {product_data[0]} berhasil dijual.\nTotal Pembayaran: {total_payment}")
-        
+            writer.writerow((current_datetime, product_data[1], total_payment, 1, product_data[4]))  # Menambahkan transaksi dengan jumlah 1
+
+        messagebox.showinfo("Info", f"Produk {product_data[1]} berhasil dijual.\nTotal Pembayaran: {total_payment}")
+
         self.inventory_tree.delete(*self.inventory_tree.get_children())
         self.inventory_window.destroy()
         self.show_inventory()
@@ -381,12 +374,13 @@ class SalesApp:
         self.transactions_window = tk.Tk()
         self.transactions_window.title("Riwayat Transaksi")
         
-        self.transactions_tree = ttk.Treeview(self.transactions_window, columns=("Nama Barang", "Harga", "Jumlah", "Modal"))
+        self.transactions_tree = ttk.Treeview(self.transactions_window, columns=("Nama Barang", "Waktu Penjualan","Harga", "Jumlah", "Modal"))
         self.transactions_tree.heading("#0", text="No.")
-        self.transactions_tree.heading("#1", text="Nama Barang")
-        self.transactions_tree.heading("#2", text="Harga")
-        self.transactions_tree.heading("#3", text="Jumlah")
-        self.transactions_tree.heading("#4", text="Modal")
+        self.transactions_tree.heading("#1", text="Waktu Penjualan")
+        self.transactions_tree.heading("#2", text="Nama Barang")
+        self.transactions_tree.heading("#3", text="Harga")
+        self.transactions_tree.heading("#4", text="Jumlah")
+        self.transactions_tree.heading("#5", text="Modal")
         
         transactions_data = self.load_transactions()
         for i, item in enumerate(transactions_data, start=1):
@@ -416,8 +410,8 @@ class SalesApp:
         with open(self.file_handler.transactions_file, "r") as file:
             reader = csv.reader(file)
             for row in reader:
-                total_sales += int(row[1])
-                total_cost += int(row[3])
+                total_sales += int(row[2])
+                total_cost += int(row[4])
         
         total_profit = total_sales - total_cost
         
