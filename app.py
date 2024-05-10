@@ -73,15 +73,14 @@ class CreditCardTransaction(TransactionDecorator):
         return total + 5  
 
 class SalesApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Aplikasi Manajemen Penjualan")
+    def __init__(self):
+        # self.root = tk.Tk()
         
         self.file_handler = SingletonFileHandler()
         self.observer = Observer()
         self.observer.register(InventoryObserver())
         
-        self.create_widgets()
+        self.show_inventory()
         
     def create_widgets(self):
         self.label = tk.Label(self.root, text="Selamat Datang di Aplikasi Manajemen Penjualan")
@@ -91,7 +90,7 @@ class SalesApp:
         self.manage_inventory_btn.pack(pady=5)
         
     def show_inventory(self):
-        self.inventory_window = tk.Toplevel(self.root)
+        self.inventory_window = tk.Tk()
         self.inventory_window.title("Kelola Stok Barang")
         
         self.inventory_tree = ttk.Treeview(self.inventory_window, columns=("Nama Barang", "Harga", "Jumlah", "Modal"))
@@ -109,7 +108,13 @@ class SalesApp:
         
         self.add_product_btn = tk.Button(self.inventory_window, text="Tambah Barang", command=self.add_product)
         self.add_product_btn.pack(pady=5)
-        
+
+        self.update_product_btn = tk.Button(self.inventory_window, text="Update Barang", command=self.update_product)
+        self.update_product_btn.pack(pady=5)
+
+        self.delete_product_btn = tk.Button(self.inventory_window, text="Hapus Barang", command=self.delete_product)
+        self.delete_product_btn.pack(pady=5)
+
         self.sell_product_btn = tk.Button(self.inventory_window, text="Jual Barang", command=self.sell_product)
         self.sell_product_btn.pack(pady=5)
         
@@ -156,7 +161,7 @@ class SalesApp:
         price = float(self.price_entry.get())
         quantity = int(self.quantity_entry.get())
         cost_price = float(self.cost_price_entry.get())
-        print(product, price, quantity, cost_price)
+        # print(product, price, quantity, cost_price)
         
         product_data = (product, price, quantity, cost_price)
         
@@ -188,6 +193,75 @@ class SalesApp:
         self.inventory_window.destroy()
         self.show_inventory()
 
+    def update_product(self):
+        selected_item = self.inventory_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Silakan pilih barang yang ingin diperbarui.")
+            return
+        
+        self.update_product_window = tk.Toplevel(self.inventory_window)
+        self.update_product_window.title("Perbarui Barang")
+        
+        selected_product_data = self.inventory_tree.item(selected_item, "values")
+
+        self.product_name_label = tk.Label(self.update_product_window, text="Nama Barang:")
+        self.product_name_label.grid(row=0, column=0, padx=5, pady=5)
+        self.product_name_entry = tk.Entry(self.update_product_window)
+        self.product_name_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.product_name_entry.insert(0, selected_product_data[0])  # Mengisi entry dengan nama barang yang dipilih
+        
+        self.price_label = tk.Label(self.update_product_window, text="Harga:")
+        self.price_label.grid(row=1, column=0, padx=5, pady=5)
+        self.price_entry = tk.Entry(self.update_product_window)
+        self.price_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.price_entry.insert(0, selected_product_data[1])  # Mengisi entry dengan harga barang yang dipilih
+        
+        self.quantity_label = tk.Label(self.update_product_window, text="Jumlah:")
+        self.quantity_label.grid(row=2, column=0, padx=5, pady=5)
+        self.quantity_entry = tk.Entry(self.update_product_window)
+        self.quantity_entry.grid(row=2, column=1, padx=5, pady=5)
+        self.quantity_entry.insert(0, selected_product_data[2])  # Mengisi entry dengan jumlah barang yang dipilih
+        
+        self.cost_price_label = tk.Label(self.update_product_window, text="Harga Modal:")
+        self.cost_price_label.grid(row=3, column=0, padx=5, pady=5)
+        self.cost_price_entry = tk.Entry(self.update_product_window)
+        self.cost_price_entry.grid(row=3, column=1, padx=5, pady=5)
+        self.cost_price_entry.insert(0, selected_product_data[3])  # Mengisi entry dengan harga modal barang yang dipilih
+        
+        self.submit_update_btn = tk.Button(self.update_product_window, text="Simpan", command=self.save_updated_product)
+        self.submit_update_btn.grid(row=4, columnspan=2, padx=5, pady=5)
+
+    def save_updated_product(self):
+        selected_item = self.inventory_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Silakan pilih barang yang ingin diperbarui.")
+            return
+        
+        product = self.product_name_entry.get()
+        price = float(self.price_entry.get())
+        quantity = int(self.quantity_entry.get())
+        cost_price = float(self.cost_price_entry.get())
+        
+        updated_product_data = (product, price, quantity, cost_price)
+        
+        updated_inventory = []
+        with open(self.file_handler.inventory_file, "r") as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if tuple(row) != tuple(self.inventory_tree.item(selected_item, "values")):
+                    updated_inventory.append(row)
+                else:
+                    updated_inventory.append(updated_product_data)
+        
+        with open(self.file_handler.inventory_file, "w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerows(updated_inventory)
+        
+        messagebox.showinfo("Info", "Barang berhasil diperbarui.")
+        
+        self.inventory_tree.delete(*self.inventory_tree.get_children())
+        self.inventory_window.destroy()
+        self.show_inventory()
 
     def sell_product(self):
         selected_item = self.inventory_tree.selection()
@@ -227,10 +301,37 @@ class SalesApp:
         self.inventory_window.destroy()
         self.show_inventory()
 
+    def delete_product(self):
+        selected_item = self.inventory_tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Silakan pilih barang yang ingin dihapus.")
+            return
+        
+        confirmation = messagebox.askyesno("Konfirmasi", "Apakah Anda yakin ingin menghapus barang ini?")
+        if confirmation:
+            selected_product_data = self.inventory_tree.item(selected_item, "values")
+            
+            updated_inventory = []
+            with open(self.file_handler.inventory_file, "r") as file:
+                reader = csv.reader(file)
+                for row in reader:
+                    if tuple(row) != tuple(selected_product_data):
+                        updated_inventory.append(row)
+            
+            with open(self.file_handler.inventory_file, "w", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerows(updated_inventory)
+            
+            messagebox.showinfo("Info", "Barang berhasil dihapus.")
+            
+            self.inventory_tree.delete(selected_item)
+            self.inventory_window.destroy()
+            self.show_inventory()
+
 
 
     def show_transactions(self):
-        self.transactions_window = tk.Toplevel(self.root)
+        self.transactions_window = tk.Tk()
         self.transactions_window.title("Riwayat Transaksi")
         
         self.transactions_tree = ttk.Treeview(self.transactions_window, columns=("Nama Barang", "Harga", "Jumlah", "Modal"))
@@ -276,9 +377,8 @@ class SalesApp:
         messagebox.showinfo("Info", f"Total Penjualan: Rp {total_sales}\nTotal Laba Bersih: Rp {total_profit}")
 
 def main():
-    root = tk.Tk()
-    app = SalesApp(root)
-    root.mainloop()
+    app = SalesApp()
+    app.inventory_window.mainloop()
 
 if __name__ == "__main__":
     main()
