@@ -4,97 +4,21 @@ from tkinter import messagebox
 import csv
 import os
 from datetime import datetime
-
-class SingletonFileHandler:
-    _instance = None
-    
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super().__new__(cls, *args, **kwargs)
-        return cls._instance
-    
-    def __init__(self):
-        self.inventory_file = "inventory.csv"
-        self.transactions_file = "transactions.csv"
-
-class Observer:
-    def __init__(self):
-        self.observers = []
-    
-    def register(self, observer):
-        self.observers.append(observer)
-    
-    def notify(self, data):
-        for observer in self.observers:
-            result = observer.update(data)
-        return result
-class InventoryObserver(Observer):
-    def update(self, data):
-        product = data[1]
-        price = data[2]
-        quantity = data[3]
-        
-        if not product:
-            messagebox.showerror("Error", "Nama barang tidak boleh kosong.")
-            return False
-        if price <= 0:
-            messagebox.showerror("Error", "Harga harus lebih dari 0.")
-            return False
-        if quantity <= 0:
-            messagebox.showerror("Error", "Jumlah harus lebih dari 0.")
-            return False
-        
-        return True
-
-class TransactionFactory:
-    @staticmethod
-    def create_transaction(payment_type, transaction_data):
-        if payment_type == "tunai":
-            return CashTransaction(transaction_data)
-        elif payment_type == "kartu kredit":
-            return CreditCardTransaction(transaction_data)
-        else:
-            raise ValueError("Jenis pembayaran tidak valid.")
-
-class TransactionDecorator:
-    def __init__(self, transaction):
-        self.transaction = transaction
-    
-    def calculate_total(self):
-        pass
-
-class CashTransaction(TransactionDecorator):
-    def calculate_total(self):
-        total = self.transaction
-        return total
-
-class CreditCardTransaction(TransactionDecorator):
-    def calculate_total(self):
-        total = self.transaction
-        return str(int(total) - 5000)
+from design_pattern import *
 
 class SalesApp:
     def __init__(self):
-        # self.root = tk.Tk()
-        
         self.file_handler = SingletonFileHandler()
         self.observer = Observer()
         self.observer.register(InventoryObserver())
-        
+        self.sort_order = {}
         self.show_inventory()
-        
-    # def create_widgets(self):
-    #     self.label = tk.Label(self.root, text="Selamat Datang di Aplikasi Manajemen Penjualan")
-    #     self.label.pack(pady=10)
-        
-    #     self.manage_inventory_btn = tk.Button(self.root, text="Kelola Stok Barang", command=self.show_inventory)
-    #     self.manage_inventory_btn.pack(pady=5)
         
     def show_inventory(self):
         self.inventory_window = tk.Tk()
         self.inventory_window.title("Kelola Stok Barang")
         
-        self.inventory_tree = ttk.Treeview(self.inventory_window, columns=("Nama Barang", "Waktu Input","Harga", "Jumlah", "Modal"))
+        self.inventory_tree = ttk.Treeview(self.inventory_window, columns=("Waktu Input","Nama Barang","Harga", "Jumlah", "Modal"))
         self.inventory_tree.heading("#0", text="No.")
         self.inventory_tree.heading("#1", text="Waktu Input")
         self.inventory_tree.heading("#2", text="Nama Barang")
@@ -102,6 +26,9 @@ class SalesApp:
         self.inventory_tree.heading("#4", text="Jumlah")
         self.inventory_tree.heading("#5", text="Modal")
         
+        for col in self.inventory_tree["columns"]:
+            self.inventory_tree.heading(col, text=col, command=lambda _col=col: self.sort_inventory(_col))
+
         inventory_data = self.load_inventory()
         for i, item in enumerate(inventory_data, start=1):
             self.inventory_tree.insert("", "end", text=str(i), values=item)
@@ -132,8 +59,43 @@ class SalesApp:
             reader = csv.reader(file)
             for row in reader:
                 inventory_data.append(row)
+        for x in inventory_data:
+            x[2] = int(x[2])
+            x[3] = int(x[3])
+            x[4] = int(x[4])
+        inventory_data[2:] = [list(x) for x in inventory_data[2:]]
         return inventory_data
+    
+    def quicksort(self, arr, column_index, reverse=False):
+        if len(arr) <= 1:
+            return arr
+        
+        pivot = arr[len(arr) // 2]
+        left = [x for x in arr if x[column_index] < pivot[column_index]]
+        middle = [x for x in arr if x[column_index] == pivot[column_index]]
+        right = [x for x in arr if x[column_index] > pivot[column_index]]
 
+        if reverse:
+            return self.quicksort(right, column_index, reverse=True) + middle + self.quicksort(left, column_index, reverse=True)
+        else:
+            return self.quicksort(left, column_index) + middle + self.quicksort(right, column_index)
+        
+    def sort_inventory(self, column):
+        column_index = self.inventory_tree["columns"].index(column)
+        inventory_data = self.load_inventory()
+        
+        if column_index not in self.sort_order or self.sort_order[column_index] == "ascending":
+            sorted_data = self.quicksort(inventory_data, column_index)
+            self.sort_order[column_index] = "descending"
+        else:
+            sorted_data = self.quicksort(inventory_data, column_index, reverse=True)
+            self.sort_order[column_index] = "ascending"
+        
+        for i in self.inventory_tree.get_children():
+            self.inventory_tree.delete(i)
+        
+        for i, item in enumerate(sorted_data, start=1):
+            self.inventory_tree.insert("", "end", text=str(i), values=item)
     def add_product(self):
         self.add_product_window = tk.Toplevel(self.inventory_window)
         self.add_product_window.title("Tambah Barang")
@@ -309,9 +271,8 @@ class SalesApp:
             messagebox.showerror("Error", "Stok barang habis.")
             return
 
-        # Create transaction based on payment type
         transaction = TransactionFactory.create_transaction(payment_type, product_data[2])
-        # Calculate total payment  # Data for the transaction
+        
         total_payment = transaction.calculate_total()
 
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Tanggal dan waktu saat ini
