@@ -44,25 +44,28 @@ class TransactionFactory:
     @staticmethod
     def create_transaction(payment_type, transaction_data):
         if payment_type == "tunai":
-            return CashTransaction(transaction_data)
+            return CashTransaction(TransactionDecorator(transaction_data))
         elif payment_type == "kartu kredit":
-            return CreditCardTransaction(transaction_data)
+            return CreditCardTransaction(TransactionDecorator(transaction_data))
         else:
             raise ValueError("Jenis pembayaran tidak valid.")
 
 class TransactionDecorator:
     def __init__(self, transaction):
-        self.transaction = transaction
+        self._transaction = transaction
     
     def calculate_total(self):
-        pass
+        return int(self._transaction)
 
 class CashTransaction(TransactionDecorator):
+    def __init__(self, cash):
+        self._cash = cash
     def calculate_total(self):
-        total = self.transaction
-        return total
+        return str(self._cash.calculate_total())
+     
 
 class CreditCardTransaction(TransactionDecorator):
+    def __init__(self, credit):
+        self._credit = credit
     def calculate_total(self):
-        total = self.transaction
-        return str(int(total) - 5000)
+        return str(self._credit.calculate_total() - 5000)
