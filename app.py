@@ -4,6 +4,7 @@ from tkinter import messagebox
 import csv
 import os
 from datetime import datetime
+from tkcalendar import DateEntry
 from design_pattern import *
 
 class SalesApp:
@@ -18,9 +19,14 @@ class SalesApp:
         self.inventory_window = tk.Tk()
         self.inventory_window.title("Kelola Stok Barang")
         
-        self.inventory_tree = ttk.Treeview(self.inventory_window, columns=("Waktu Input","Nama Barang","Harga", "Jumlah", "Modal"))
+        self.style = ttk.Style()
+        self.style.theme_use('clam')  # Menggunakan tema 'clam' yang lebih modern
+        self.style.configure('Treeview', background='#D3D3D3', foreground='black', rowheight=25, fieldbackground='#D3D3D3')
+        self.style.map('Treeview', background=[('selected', '#347083')])
+        
+        self.inventory_tree = ttk.Treeview(self.inventory_window, columns=("Waktu Produk Masuk", "Nama Barang", "Harga", "Jumlah", "Modal"))
         self.inventory_tree.heading("#0", text="No.")
-        self.inventory_tree.heading("#1", text="Waktu Input")
+        self.inventory_tree.heading("#1", text="Waktu Produk Masuk")
         self.inventory_tree.heading("#2", text="Nama Barang")
         self.inventory_tree.heading("#3", text="Harga")
         self.inventory_tree.heading("#4", text="Jumlah")
@@ -33,25 +39,29 @@ class SalesApp:
         for i, item in enumerate(inventory_data, start=1):
             self.inventory_tree.insert("", "end", text=str(i), values=item)
         
-        self.inventory_tree.pack(pady=10)
+        self.inventory_tree.pack(pady=10, padx=10, fill="both", expand=True)
         
-        self.add_product_btn = tk.Button(self.inventory_window, text="Tambah Barang", command=self.add_product)
-        self.add_product_btn.pack(pady=5)
-
-        self.update_product_btn = tk.Button(self.inventory_window, text="Update Barang", command=self.update_product)
-        self.update_product_btn.pack(pady=5)
-
-        self.delete_product_btn = tk.Button(self.inventory_window, text="Hapus Barang", command=self.delete_product)
-        self.delete_product_btn.pack(pady=5)
-
-        self.sell_cash_product_btn = tk.Button(self.inventory_window, text="Jual Barang (Tunai)", command=lambda: self.sell_product_with_payment_type("tunai"))
-        self.sell_cash_product_btn.pack(pady=5)
+        # Menyusun tombol secara rapi dengan menggunakan frame
+        button_frame = tk.Frame(self.inventory_window)
+        button_frame.pack(pady=5, padx=10, fill="x")
         
-        self.sell_credit_product_btn = tk.Button(self.inventory_window, text="Jual Barang (Kartu Kredit)", command=lambda: self.sell_product_with_payment_type("kartu kredit"))
-        self.sell_credit_product_btn.pack(pady=5)
+        self.add_product_btn = ttk.Button(button_frame, text="Tambah Barang", command=self.add_product)
+        self.add_product_btn.pack(side="left", padx=5)
+
+        self.update_product_btn = ttk.Button(button_frame, text="Update Barang", command=self.update_product)
+        self.update_product_btn.pack(side="left", padx=5)
+
+        self.delete_product_btn = ttk.Button(button_frame, text="Hapus Barang", command=self.delete_product)
+        self.delete_product_btn.pack(side="left", padx=5)
+
+        self.sell_cash_product_btn = ttk.Button(button_frame, text="Jual Barang (Tunai)", command=lambda: self.sell_product_with_payment_type("tunai"))
+        self.sell_cash_product_btn.pack(side="left", padx=5)
         
-        self.view_transactions_btn = tk.Button(self.inventory_window, text="Lihat Riwayat Transaksi", command=self.show_transactions)
-        self.view_transactions_btn.pack(pady=5)
+        self.sell_credit_product_btn = ttk.Button(button_frame, text="Jual Barang (Kartu Kredit)", command=lambda: self.sell_product_with_payment_type("kartu kredit"))
+        self.sell_credit_product_btn.pack(side="left", padx=5)
+        
+        self.view_transactions_btn = ttk.Button(button_frame, text="Lihat Riwayat Transaksi", command=self.show_transactions)
+        self.view_transactions_btn.pack(side="left", padx=5)
 
     def load_inventory(self):
         inventory_data = []
@@ -96,6 +106,7 @@ class SalesApp:
         
         for i, item in enumerate(sorted_data, start=1):
             self.inventory_tree.insert("", "end", text=str(i), values=item)
+    
     def add_product(self):
         self.add_product_window = tk.Toplevel(self.inventory_window)
         self.add_product_window.title("Tambah Barang")
@@ -220,44 +231,6 @@ class SalesApp:
         self.show_inventory()
 
 
-    def sell_product(self):
-        selected_item = self.inventory_tree.selection()
-        if not selected_item:
-            messagebox.showerror("Error", "Silakan pilih item yang ingin dijual.")
-            return
-        
-        index = self.inventory_tree.index(selected_item)
-        product_data = self.inventory_tree.item(selected_item, "values")
-        
-        if int(product_data[2]) <= 0:
-            messagebox.showerror("Error", "Stok barang habis.")
-            return
-        
-        # Update data stok barang
-        updated_inventory = []
-        with open(self.file_handler.inventory_file, "r") as file:
-            reader = csv.reader(file)
-            for row in reader:
-                if tuple(row) != tuple(product_data):
-                    updated_inventory.append(row)
-                else:
-                    updated_inventory.append((row[0], row[1], int(row[2]) - 1, row[3]))
-        
-        with open(self.file_handler.inventory_file, "w", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerows(updated_inventory)
-        
-        # Tambahkan item terjual ke riwayat transaksi
-        with open(self.file_handler.transactions_file, "a", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerow((product_data[0], product_data[1], 1, product_data[3]))  # Menambahkan transaksi dengan jumlah 1
-        
-        messagebox.showinfo("Info", f"Produk {product_data[0]} berhasil dijual.")
-        
-        self.inventory_tree.delete(*self.inventory_tree.get_children())
-        self.inventory_window.destroy()
-        self.show_inventory()
-
     def sell_product_with_payment_type(self, payment_type):
         selected_item = self.inventory_tree.selection()
         if not selected_item:
@@ -284,7 +257,7 @@ class SalesApp:
                 if tuple(row) != tuple(product_data):
                     updated_inventory.append(row)
                 else:
-                    updated_inventory.append((current_datetime, row[1], row[2], int(row[3]) - 1, row[4]))
+                    updated_inventory.append((row[0], row[1], row[2], int(row[3]) - 1, row[4]))
 
         with open(self.file_handler.inventory_file, "w", newline="") as file:
             writer = csv.writer(file)
@@ -293,7 +266,7 @@ class SalesApp:
         # Tambahkan item terjual ke riwayat transaksi
         with open(self.file_handler.transactions_file, "a", newline="") as file:
             writer = csv.writer(file)
-            writer.writerow((current_datetime, product_data[1], total_payment, 1, product_data[4]))  # Menambahkan transaksi dengan jumlah 1
+            writer.writerow((current_datetime, product_data[1], total_payment, 1, product_data[4], current_datetime))  # Menambahkan transaksi dengan waktu penjualan
 
         messagebox.showinfo("Info", f"Produk {product_data[1]} berhasil dijual.\nTotal Pembayaran: {total_payment}")
 
@@ -329,19 +302,18 @@ class SalesApp:
             self.inventory_window.destroy()
             self.show_inventory()
 
-
-
     def show_transactions(self):
         self.transactions_window = tk.Tk()
         self.transactions_window.title("Riwayat Transaksi")
         
-        self.transactions_tree = ttk.Treeview(self.transactions_window, columns=("Nama Barang", "Waktu Penjualan","Harga", "Jumlah", "Modal"))
+        self.transactions_tree = ttk.Treeview(self.transactions_window, columns=("Waktu Produk Masuk", "Nama Barang","Harga", "Jumlah", "Modal", "Waktu Penjualan"))
         self.transactions_tree.heading("#0", text="No.")
-        self.transactions_tree.heading("#1", text="Waktu Penjualan")
+        self.transactions_tree.heading("#1", text="Waktu Produk Masuk")
         self.transactions_tree.heading("#2", text="Nama Barang")
         self.transactions_tree.heading("#3", text="Harga")
         self.transactions_tree.heading("#4", text="Jumlah")
         self.transactions_tree.heading("#5", text="Modal")
+        self.transactions_tree.heading("#6", text="Waktu Penjualan")
         
         transactions_data = self.load_transactions()
         for i, item in enumerate(transactions_data, start=1):
@@ -349,8 +321,42 @@ class SalesApp:
         
         self.transactions_tree.pack(pady=10)
 
+        # Menambahkan frame untuk date picker dan tombol filter
+        filter_frame = tk.Frame(self.transactions_window)
+        filter_frame.pack(pady=5)
+
+        tk.Label(filter_frame, text="Dari:").pack(side="left")
+        self.start_date_entry = DateEntry(filter_frame, date_pattern="yyyy-mm-dd")
+        self.start_date_entry.pack(side="left", padx=5)
+
+        tk.Label(filter_frame, text="Sampai:").pack(side="left")
+        self.end_date_entry = DateEntry(filter_frame, date_pattern="yyyy-mm-dd")
+        self.end_date_entry.pack(side="left", padx=5)
+
+        filter_btn = ttk.Button(filter_frame, text="Filter", command=self.apply_date_filter)
+        filter_btn.pack(side="left", padx=5)
+
         self.calculate_sales_summary_btn = tk.Button(self.transactions_window, text="Hitung Rekapan Penjualan", command=self.calculate_sales_summary)
         self.calculate_sales_summary_btn.pack(pady=5)
+
+    def apply_date_filter(self):
+        start_date = self.start_date_entry.get_date()
+        end_date = self.end_date_entry.get_date()
+
+        filtered_transactions = []
+        with open(self.file_handler.transactions_file, "r") as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if len(row) >= 6:
+                    transaction_date = datetime.strptime(row[5], "%Y-%m-%d %H:%M:%S").date()
+                    if start_date <= transaction_date <= end_date:
+                        filtered_transactions.append(row)
+
+        for i in self.transactions_tree.get_children():
+            self.transactions_tree.delete(i)
+
+        for i, item in enumerate(filtered_transactions, start=1):
+            self.transactions_tree.insert("", "end", text=str(i), values=item)
 
     def load_transactions(self):
         transactions_data = []
