@@ -1,10 +1,12 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import messagebox
+from tkinter import filedialog
 import csv
 import os
 from datetime import datetime
 from tkcalendar import DateEntry
+import pandas as pd 
 from design_pattern import *
 
 class SalesApp:
@@ -13,6 +15,7 @@ class SalesApp:
         self.observer = Observer()
         self.observer.register(InventoryObserver())
         self.sort_order = {}
+        self.filtered_transactions = []  # Menyimpan transaksi yang difilter
         self.show_inventory()
         
     def show_inventory(self):
@@ -339,23 +342,27 @@ class SalesApp:
         self.calculate_sales_summary_btn = tk.Button(self.transactions_window, text="Hitung Rekapan Penjualan", command=self.calculate_sales_summary)
         self.calculate_sales_summary_btn.pack(pady=5)
 
+        # Menambahkan tombol ekspor ke Excel
+        self.export_to_excel_btn = tk.Button(self.transactions_window, text="Ekspor ke Excel", command=self.export_to_excel)
+        self.export_to_excel_btn.pack(pady=5)
+
     def apply_date_filter(self):
         start_date = self.start_date_entry.get_date()
         end_date = self.end_date_entry.get_date()
 
-        filtered_transactions = []
+        self.filtered_transactions = []  # Reset filtered transactions
         with open(self.file_handler.transactions_file, "r") as file:
             reader = csv.reader(file)
             for row in reader:
                 if len(row) >= 6:
                     transaction_date = datetime.strptime(row[5], "%Y-%m-%d %H:%M:%S").date()
                     if start_date <= transaction_date <= end_date:
-                        filtered_transactions.append(row)
+                        self.filtered_transactions.append(row)
 
         for i in self.transactions_tree.get_children():
             self.transactions_tree.delete(i)
 
-        for i, item in enumerate(filtered_transactions, start=1):
+        for i, item in enumerate(self.filtered_transactions, start=1):
             self.transactions_tree.insert("", "end", text=str(i), values=item)
 
     def load_transactions(self):
@@ -370,19 +377,33 @@ class SalesApp:
         total_sales = 0
         total_cost = 0
         
-        if not os.path.exists(self.file_handler.transactions_file):
-            messagebox.showinfo("Info", "Belum ada transaksi yang dicatat.")
+        if not self.filtered_transactions:
+            messagebox.showinfo("Info", "Tidak ada transaksi yang sesuai filter.")
             return
         
-        with open(self.file_handler.transactions_file, "r") as file:
-            reader = csv.reader(file)
-            for row in reader:
-                total_sales += int(row[2])
-                total_cost += int(row[4])
+        for row in self.filtered_transactions:
+            total_sales += int(row[2])
+            total_cost += int(row[4])
         
         total_profit = total_sales - total_cost
         
         messagebox.showinfo("Info", f"Total Penjualan: Rp {total_sales}\nTotal Laba Bersih: Rp {total_profit}")
+
+    def export_to_excel(self):
+        # Menentukan file untuk disimpan
+        file_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")])
+        if not file_path:
+            return
+
+        # Mengambil data transaksi saat ini
+        data = self.filtered_transactions if self.filtered_transactions else self.load_transactions()
+
+        # Membuat dataframe dari data transaksi
+        df = pd.DataFrame(data, columns=["Waktu Produk Masuk", "Nama Barang", "Harga", "Jumlah", "Modal", "Waktu Penjualan"])
+
+        # Menyimpan dataframe ke file Excel
+        df.to_excel(file_path, index=False)
+        messagebox.showinfo("Info", "Data berhasil diekspor ke Excel")
 
 def main():
     app = SalesApp()
