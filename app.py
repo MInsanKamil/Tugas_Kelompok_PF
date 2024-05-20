@@ -309,18 +309,17 @@ class SalesApp:
         self.transactions_window = tk.Tk()
         self.transactions_window.title("Riwayat Transaksi")
         
-        self.transactions_tree = ttk.Treeview(self.transactions_window, columns=("Waktu Produk Masuk", "Nama Barang","Harga", "Jumlah", "Modal", "Waktu Penjualan"))
+        self.transactions_tree = ttk.Treeview(self.transactions_window, columns=("Nama Barang", "Harga", "Jumlah", "Modal", "Waktu Penjualan"))
         self.transactions_tree.heading("#0", text="No.")
-        self.transactions_tree.heading("#1", text="Waktu Produk Masuk")
-        self.transactions_tree.heading("#2", text="Nama Barang")
-        self.transactions_tree.heading("#3", text="Harga")
-        self.transactions_tree.heading("#4", text="Jumlah")
-        self.transactions_tree.heading("#5", text="Modal")
-        self.transactions_tree.heading("#6", text="Waktu Penjualan")
+        self.transactions_tree.heading("#1", text="Nama Barang")
+        self.transactions_tree.heading("#2", text="Harga")
+        self.transactions_tree.heading("#3", text="Jumlah")
+        self.transactions_tree.heading("#4", text="Modal")
+        self.transactions_tree.heading("#5", text="Waktu Penjualan")
         
         transactions_data = self.load_transactions()
         for i, item in enumerate(transactions_data, start=1):
-            self.transactions_tree.insert("", "end", text=str(i), values=item)
+            self.transactions_tree.insert("", "end", text=str(i), values=item[1:])  # Menghapus kolom pertama (Waktu Produk Masuk)
         
         self.transactions_tree.pack(pady=10)
 
@@ -363,7 +362,7 @@ class SalesApp:
             self.transactions_tree.delete(i)
 
         for i, item in enumerate(self.filtered_transactions, start=1):
-            self.transactions_tree.insert("", "end", text=str(i), values=item)
+            self.transactions_tree.insert("", "end", text=str(i), values=item[1:])  # Menghapus kolom pertama (Waktu Produk Masuk)
 
     def load_transactions(self):
         transactions_data = []
